@@ -13,6 +13,7 @@ const zoom = byId('zoom');
 const canvasWrap = byId('canvas-wrap');
 const layerIds = ['layer-labels', 'layer-original', 'layer-one2one', 'layer-one2many'];
 let task, frame, image, selected, highlighted, gesture, drawing, mode = 'select', dirty = false, busy = false;
+let editRevision = 0;
 let originalBoxes = [];
 const hiddenBoxesByFrame = new Map();
 let hiddenBoxes = new Set();
@@ -68,12 +69,13 @@ function framePath(id = frame.id) {
   return taskPath() + '/images/' + encodeURIComponent(id);
 }
 
-async function run(action) {
+async function run(action, lockEditor = true) {
   if (busy) return;
   busy = true;
   const review = document.querySelector('.review');
   const editor = document.querySelector('.editor');
-  review.inert = editor.inert = true;
+  if (lockEditor) review.inert = editor.inert = true;
+  byId('save-now').disabled = true;
   try {
     await action();
   } catch (error) {
@@ -81,20 +83,35 @@ async function run(action) {
   } finally {
     busy = false;
     review.inert = editor.inert = false;
+    byId('save-now').disabled = false;
   }
+}
+
+function showSaveState(text, error = false) {
+  const state = byId('save-state');
+  state.textContent = text;
+  state.dataset.error = String(error);
 }
 
 function markDirty() {
   dirty = true;
-  message('当前图片有尚未保存的修改');
+  editRevision++;
+  showSaveState('待保存');
 }
 
-function canLeave() {
-  return !dirty || window.confirm('当前图片有尚未保存的修改。放弃这些修改并继续？');
+function leaveFrame(action) {
+  if (gesture) return;
+  run(async () => {
+    if (dirty) await saveFrame();
+    await action();
+  });
 }
 
 window.addEventListener('beforeunload', event => {
-  if (dirty) event.preventDefault();
+  if (dirty || gesture?.changed) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
 });
 
 function updateLocation() {
@@ -195,6 +212,7 @@ async function showFrame(id) {
   hiddenBoxes = hiddenBoxesByFrame.get(id);
   selected = highlighted = gesture = drawing = undefined;
   dirty = false;
+  showSaveState('无未保存修改');
   byId('frame-name').textContent = frame.name;
   byId('frame-split').textContent = frame.split;
   byId('status').value = frame.status;
@@ -226,8 +244,8 @@ async function showFrame(id) {
 }
 
 function navigate(id) {
-  if (!frame || id === frame.id || busy || !canLeave()) return;
-  run(() => showFrame(id));
+  if (!frame || id === frame.id) return;
+  leaveFrame(() => showFrame(id));
 }
 
 function neighbor(offset) {
@@ -344,26 +362,40 @@ function renderHistory() {
   }
 }
 
-async function saveFrame(finish = false) {
-  if (!frame) return;
+async function saveFrame(finish = false, automatic = false) {
+  if (!frame || gesture) return;
   const status = finish && !['negative', 'uncertain'].includes(byId('status').value) ? 'done' : byId('status').value;
-  if (status === 'negative' && frame.boxes.length) throw new Error('确认无目标前，请删除当前图片的已有标注。');
   const next = finish ? neighbor(1) : null;
+  const revision = editRevision;
   const payload = {
     version: frame.version, status, note: byId('frame-note').value,
     boxes: frame.boxes, events: frame.events.map(event => ({id: event.id, decision: event.decision || '', note: event.note || ''})),
   };
-  frame = await api(framePath(), {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+  showSaveState(automatic ? '正在自动保存…' : '正在保存…');
+  let saved;
+  try {
+    if (status === 'negative' && frame.boxes.length) throw new Error('确认无目标前，请删除当前图片的已有标注。');
+    saved = await api(framePath(), {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+  } catch (error) {
+    showSaveState(automatic ? '自动保存失败，修改仍待保存' : '保存失败，请重试', true);
+    throw error;
+  }
   const summary = task.images.find(item => item.id === frame.id);
-  if (summary) summary.status = frame.status;
-  dirty = false;
-  byId('status').value = frame.status;
+  if (summary) summary.status = saved.status;
+  // Reuse the live objects so edits made while the request was in flight stay editable.
+  frame.version = saved.version;
+  frame.history = saved.history;
+  frame.status = saved.status;
+  dirty = editRevision !== revision;
+  if (!dirty) byId('status').value = saved.status;
   renderFrames();
-  renderLabels();
   renderHistory();
-  draw();
-  if (next) await showFrame(next.id);
-  message(next ? '上一张已保存' : '当前图片已保存');
+  showSaveState(dirty ? '待保存' : (automatic ? '已自动保存 ' : '已保存 ') + new Date().toLocaleTimeString());
+  message('');
+  if (next) {
+    await showFrame(next.id);
+    message('上一张已保存');
+  }
 }
 
 function sizeCanvas() {
@@ -681,11 +713,15 @@ byId('draw-tool').addEventListener('click', () => setMode('draw'));
 byId('status').addEventListener('change', markDirty);
 byId('frame-note').addEventListener('input', markDirty);
 byId('save').addEventListener('click', () => run(() => saveFrame()));
+byId('save-now').addEventListener('click', () => run(() => saveFrame()));
 byId('done-next').addEventListener('click', () => run(() => saveFrame(true)));
+window.setInterval(() => {
+  if (dirty && frame && !gesture) run(() => saveFrame(false, true), false);
+}, 15000);
 byId('filter').addEventListener('change', renderFrames);
 byId('prev').addEventListener('click', () => { const item = neighbor(-1); if (item) navigate(item.id); });
 byId('next').addEventListener('click', () => { const item = neighbor(1); if (item) navigate(item.id); });
-byId('back').addEventListener('click', () => { if (canLeave()) run(async () => { await showCatalog(); message(''); }); });
+byId('back').addEventListener('click', () => leaveFrame(showCatalog));
 byId('export').addEventListener('click', () => {
   if (dirty) {
     message('请先保存当前图片，再导出审核结果。', true);
@@ -742,8 +778,8 @@ byId('import').addEventListener('submit', event => {
 byId('attach-review').addEventListener('change', event => {
   const file = event.target.files[0];
   event.target.value = '';
-  if (!file || !canLeave()) return;
-  run(async () => {
+  if (!file) return;
+  leaveFrame(async () => {
     message('正在载入复核材料…');
     await api(taskPath() + '/review', zipOptions(file));
     await openTask(task.id, frame.id);

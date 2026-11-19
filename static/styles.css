@@ -67,6 +67,8 @@ h1 { font-size: 1.35rem; margin: 0; }
 #frame-list span { font-size: .82rem; color: var(--muted); flex-shrink: 0; }
 .editor { min-width: 0; padding: .7rem; display: flex; flex-direction: column; min-height: 0; }
 .frame-bar { margin-bottom: .45rem; }
+#save-state { color: var(--muted); }
+#save-state[data-error=true] { color: var(--error); }
 .frame-nav { margin-left: auto; display: flex; gap: .35rem; }
 .tool-bar { padding: .45rem; border: 1px solid var(--line); border-bottom: 0; background: var(--panel); }
 .tools label { display: flex; align-items: center; }
