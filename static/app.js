@@ -9,6 +9,8 @@ const decisions = ['预测正确', 'one2one 漏检', 'one2many 漏检', 'one2one
 const color = {label: '#80e8ca', original: '#f4ec91', one2one: '#63b8ff', one2many: '#ff9a79', selected: '#ffffff'};
 const canvas = byId('canvas');
 const context = canvas.getContext('2d');
+const zoom = byId('zoom');
+const canvasWrap = byId('canvas-wrap');
 const layerIds = ['layer-labels', 'layer-original', 'layer-one2one', 'layer-one2many'];
 let task, frame, image, selected, highlighted, gesture, drawing, mode = 'select', dirty = false, busy = false;
 let originalBoxes = [];
@@ -366,14 +368,32 @@ async function saveFrame(finish = false) {
 
 function sizeCanvas() {
   if (!frame || byId('workbench').hidden) return;
-  canvas.width = frame.width;
-  canvas.height = frame.height;
-  const wrap = byId('canvas-wrap');
-  const fit = Math.min(wrap.clientWidth / frame.width, wrap.clientHeight / frame.height);
-  const scale = Math.max(.01, fit * Number(byId('zoom').value));
+  if (canvas.width !== frame.width) canvas.width = frame.width;
+  if (canvas.height !== frame.height) canvas.height = frame.height;
+  const bounds = canvasWrap.getBoundingClientRect();
+  const fit = Math.min((bounds.width - 2 * canvasWrap.clientLeft) / frame.width,
+    (bounds.height - 2 * canvasWrap.clientTop) / frame.height);
+  const value = Number(zoom.value);
+  const scale = Math.max(.01, fit * value);
   canvas.style.width = (frame.width * scale) + 'px';
   canvas.style.height = (frame.height * scale) + 'px';
+  byId('zoom-value').textContent = Math.round(value * 100) + '%';
+  byId('zoom-out').disabled = value <= Number(zoom.min);
+  byId('zoom-in').disabled = value >= Number(zoom.max);
   draw();
+}
+
+function setZoom(value, clientX, clientY) {
+  if (!frame || gesture) return;
+  const previous = canvas.getBoundingClientRect();
+  const viewport = canvasWrap.getBoundingClientRect();
+  const x = Math.max(0, Math.min(previous.width, (clientX ?? (viewport.left + viewport.width/2)) - previous.left));
+  const y = Math.max(0, Math.min(previous.height, (clientY ?? (viewport.top + viewport.height/2)) - previous.top));
+  zoom.value = Math.max(Number(zoom.min), Math.min(Number(zoom.max), value));
+  sizeCanvas();
+  const next = canvas.getBoundingClientRect();
+  canvasWrap.scrollTo(canvasWrap.scrollLeft + x * (next.width / previous.width - 1),
+    canvasWrap.scrollTop + y * (next.height / previous.height - 1));
 }
 
 function normalize(points) { return points.map(([x, y]) => [x / canvas.width, y / canvas.height]); }
@@ -458,7 +478,13 @@ function drawHandles(points) {
   context.beginPath();
   context.arc(...handle, 4.4*scale, 0, 2*Math.PI);
   context.fill();
-  for (const [x, y] of points) context.fillRect(x - 2.6*scale, y - 2.6*scale, 5.2*scale, 5.2*scale);
+  context.strokeStyle = '#0b1717';
+  for (const point of points) {
+    context.beginPath();
+    context.arc(...point, 6*scale, 0, 2*Math.PI);
+    context.fill();
+    context.stroke();
+  }
 }
 
 function draw() {
@@ -526,11 +552,15 @@ function chooseGesture(point) {
   const current = visibleSelectedBox();
   if (current) {
     const points = pixels(current.points);
-    const reach = 9*visualPixels();
+    const scale = visualPixels();
     const currentGeometry = geometry(current);
-    if (distance(point, rotationHandle(points)) < reach) return {kind: 'rotate', start: point, box: current, geometry: currentGeometry};
-    const corner = points.findIndex(pos => distance(point, pos) < reach);
-    if (corner >= 0) return {kind: 'resize', start: point, box: current, geometry: currentGeometry, opposite: points[(corner+2)%4]};
+    if (distance(point, rotationHandle(points)) < 9*scale) return {kind: 'rotate', start: point, box: current, geometry: currentGeometry};
+    const distances = points.map(position => distance(point, position));
+    const nearest = Math.min(...distances);
+    if (nearest < 14*scale) {
+      const corner = distances.indexOf(nearest);
+      return {kind: 'resize', start: point, box: current, geometry: currentGeometry, opposite: points[(corner+2)%4]};
+    }
   }
   const hit = frame.boxes.findLast(box => !hiddenBoxes.has(box.id) && inside(point, pixels(box.points)));
   setSelection(hit?.id);
@@ -672,8 +702,16 @@ byId('export').addEventListener('click', () => {
 });
 byId('export-download').addEventListener('click', () => byId('export-dialog').close());
 for (const id of layerIds) byId(id).addEventListener('change', draw);
-byId('zoom').addEventListener('input', sizeCanvas);
-new ResizeObserver(sizeCanvas).observe(byId('canvas-wrap'));
+zoom.addEventListener('input', () => setZoom(Number(zoom.value)));
+byId('zoom-out').addEventListener('click', () => setZoom(Number(zoom.value) - Number(zoom.step)));
+byId('zoom-in').addEventListener('click', () => setZoom(Number(zoom.value) + Number(zoom.step)));
+byId('zoom-fit').addEventListener('click', () => setZoom(1));
+canvasWrap.addEventListener('wheel', event => {
+  if (!frame || !event.ctrlKey || !event.deltaY) return;
+  event.preventDefault();
+  setZoom(Number(zoom.value) - Math.sign(event.deltaY)*Number(zoom.step), event.clientX, event.clientY);
+}, {passive: false});
+new ResizeObserver(sizeCanvas).observe(canvasWrap);
 
 document.addEventListener('keydown', event => {
   if (!frame || event.target.matches('input,select,textarea,button') || event.altKey || event.metaKey || event.ctrlKey) return;
