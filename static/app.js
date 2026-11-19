@@ -148,6 +148,18 @@ function selectedBox() {
   return frame?.boxes.find(box => box.id === selected);
 }
 
+function visibleSelectedBox() {
+  return hiddenBoxes.has(selected) ? undefined : selectedBox();
+}
+
+function toggleBoxVisibility(id) {
+  if (hiddenBoxes.delete(id)) {
+    byId('layer-labels').checked = true;
+  } else {
+    hiddenBoxes.add(id);
+  }
+}
+
 function boxName(box, index) {
   return /^g\d+$/i.test(box.id) ? box.id.toUpperCase() : '新增框 ' + (index + 1);
 }
@@ -237,13 +249,8 @@ function renderLabels(focusBoxId) {
     link.disabled = hidden;
     link.setAttribute('aria-pressed', String(box.id === selected));
     const visibility = button(hidden ? '显示' : '隐藏', () => {
-      if (hidden) {
-        hiddenBoxes.delete(box.id);
-        byId('layer-labels').checked = true;
-      } else {
-        hiddenBoxes.add(box.id);
-        if (selected === box.id) selected = undefined;
-      }
+      if (!hidden && selected === box.id) selected = undefined;
+      toggleBoxVisibility(box.id);
       renderLabels(box.id);
       draw();
     });
@@ -257,6 +264,9 @@ function renderLabels(focusBoxId) {
   const box = selectedBox();
   byId('box-editor').hidden = !box;
   if (box) {
+    const hidden = hiddenBoxes.has(box.id);
+    byId('selected-box-visibility').textContent = hidden ? '显示所选框' : '隐藏所选框';
+    byId('box-class').disabled = byId('box-angle').disabled = byId('delete-box').disabled = hidden;
     byId('box-class').value = box.class_id;
     byId('box-angle').value = Math.round(geometry(box).angle * 1800 / Math.PI) / 10;
   }
@@ -473,7 +483,7 @@ function draw() {
         strokeBox(pixels(box.points), color.label, boxName(box, index) + ' ' + task.classes[box.class_id]);
       }
     });
-    const box = selectedBox();
+    const box = visibleSelectedBox();
     if (box) {
       const points = pixels(box.points);
       strokeBox(points, color.selected, task.classes[box.class_id], true);
@@ -513,7 +523,7 @@ function inside(point, polygon) {
 function chooseGesture(point) {
   if (mode === 'draw') return {kind: 'draw', start: point};
   if (!byId('layer-labels').checked) return null;
-  const current = selectedBox();
+  const current = visibleSelectedBox();
   if (current) {
     const points = pixels(current.points);
     const reach = 9*visualPixels();
@@ -600,8 +610,15 @@ canvas.addEventListener('pointercancel', () => {
   draw();
 });
 
+byId('selected-box-visibility').addEventListener('click', () => {
+  if (!selectedBox() || busy) return;
+  toggleBoxVisibility(selected);
+  renderLabels();
+  draw();
+});
+
 byId('box-class').addEventListener('change', event => {
-  const box = selectedBox();
+  const box = visibleSelectedBox();
   if (!box || busy) return;
   box.class_id = Number(event.target.value);
   markDirty();
@@ -610,7 +627,7 @@ byId('box-class').addEventListener('change', event => {
 });
 
 byId('box-angle').addEventListener('change', event => {
-  const box = selectedBox();
+  const box = visibleSelectedBox();
   if (!box || busy || !Number.isFinite(event.target.valueAsNumber)) return;
   const points = adjustedPoints(rectangle({...geometry(box), angle: event.target.valueAsNumber * Math.PI/180}));
   if (!points) { message('该角度下的框无法放入图片内。请缩小框再调整。', true); return; }
@@ -621,7 +638,7 @@ byId('box-angle').addEventListener('change', event => {
 });
 
 function deleteBox() {
-  const box = selectedBox();
+  const box = visibleSelectedBox();
   if (!box || busy) return;
   frame.boxes = frame.boxes.filter(item => item.id !== box.id);
   setSelection(undefined);
