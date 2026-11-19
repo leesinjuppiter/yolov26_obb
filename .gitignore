@@ -1,0 +1,8 @@
+/.local/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.sqlite3-*
+*.zip
+/datasets/
+/exports/

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YOLO 旋转框审核</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a href="/" class="brand">YOLO <span>旋转框审核</span></a>
+    <p id="message" role="status" aria-live="polite"></p>
+  </header>
+  <main>
+    <section id="catalog" aria-labelledby="catalog-title">
+      <div class="catalog-heading"><h1 id="catalog-title">审核任务</h1></div>
+      <form id="import">
+        <label>任务名称<input id="import-name" maxlength="120" placeholder="默认使用文件名"></label>
+        <label>YOLO OBB 数据集 ZIP<input id="import-zip" type="file" accept=".zip" required></label>
+        <label>双头复核材料 ZIP（可选）<input id="import-review" type="file" accept=".zip"></label>
+        <button type="submit" class="primary">导入任务</button>
+      </form>
+      <ul id="task-list" class="task-list"></ul>
+    </section>
+
+    <section id="workbench" hidden>
+      <div class="task-bar">
+        <button id="back" type="button">返回任务</button>
+        <div class="task-title"><h1 id="task-name"></h1><span id="progress"></span></div>
+        <label class="attach">添加复核材料<input id="attach-review" type="file" accept=".zip"></label>
+        <button id="export" type="button">导出 ZIP</button>
+      </div>
+      <div class="workspace">
+        <aside class="frames" aria-label="图片列表">
+          <label>图片<select id="filter">
+            <option value="all">全部</option><option value="pending">待审核</option>
+            <option value="in_progress">审核中</option><option value="done">已完成</option>
+            <option value="negative">确认无目标</option><option value="uncertain">无法判断</option>
+          </select></label>
+          <ol id="frame-list"></ol>
+        </aside>
+        <section class="editor" aria-label="图片和标注">
+          <div class="frame-bar">
+            <strong id="frame-name"></strong><span id="frame-split"></span>
+            <div class="frame-nav"><button id="prev" type="button">上一张</button><button id="next" type="button">下一张</button></div>
+          </div>
+          <div class="tool-bar">
+            <div class="tools">
+              <button id="select-tool" type="button" aria-pressed="true">选择</button>
+              <button id="draw-tool" type="button" aria-pressed="false">画矩形</button>
+              <label>类别 <select id="draw-class"></select></label>
+              <label>缩放 <input id="zoom" type="range" min="1" max="3" step=".25" value="1"></label>
+            </div>
+            <div class="layers">
+              <label><input id="layer-labels" type="checkbox" checked>当前标注</label>
+              <label><input id="layer-original" type="checkbox">原标注</label>
+              <label><input id="layer-one2one" type="checkbox">one2one</label>
+              <label><input id="layer-one2many" type="checkbox">one2many</label>
+              <a id="preview" target="_blank" rel="noopener" hidden>四窗对照图</a>
+            </div>
+          </div>
+          <div class="canvas-scroll" id="canvas-wrap">
+            <canvas id="canvas" aria-label="旋转框标注画布"></canvas>
+            <p id="image-message" hidden></p>
+          </div>
+          <p class="canvas-help">拖动框移动。拖角点缩放。拖框外圆点旋转。也可直接修改右侧的角度。</p>
+        </section>
+        <aside class="review" aria-label="逐图审核">
+          <div class="review-save">
+            <label>审核状态<select id="status">
+              <option value="pending">待审核</option><option value="in_progress">审核中</option>
+              <option value="done">已完成</option><option value="negative">确认无目标</option><option value="uncertain">无法判断</option>
+            </select></label>
+            <label>图片备注<textarea id="frame-note" rows="2"></textarea></label>
+            <div class="save-actions"><button id="save" type="button" class="primary">保存</button><button id="done-next" type="button">完成并下一张</button></div>
+          </div>
+          <details open><summary>当前标注 <span id="box-count"></span></summary>
+            <div id="box-editor" hidden>
+              <label>所选框类别<select id="box-class"></select></label>
+              <label>角度（°）<input id="box-angle" type="number" step="0.1"></label>
+              <button id="delete-box" type="button">删除所选框</button>
+            </div>
+            <div id="box-list"></div>
+          </details>
+          <details open><summary>模型分歧 <span id="event-count"></span></summary><div id="event-list"></div></details>
+          <details><summary>标注与审核历史 <span id="history-count"></span></summary><div id="history"></div></details>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <dialog id="export-dialog">
+    <h2>导出审核结果</h2>
+    <dl id="export-summary"></dl>
+    <form method="dialog" class="save-actions">
+      <button type="submit">返回</button>
+      <a id="export-download" class="button primary" download>下载 ZIP</a>
+    </form>
+  </dialog>
+</body>
+</html>
