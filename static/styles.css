@@ -60,11 +60,11 @@ h1 { font-size: 1.35rem; margin: 0; }
 .frames, .review { padding: .8rem; background: var(--panel); overflow: auto; }
 .frames { border-right: 1px solid var(--line); }
 .review { border-left: 1px solid var(--line); }
-#frame-list button, #box-list button {
+#frame-list button {
   display: flex; gap: .4rem; justify-content: space-between; text-align: left; width: 100%; margin-bottom: .35rem;
   overflow-wrap: anywhere;
 }
-#frame-list span, #box-list span { font-size: .82rem; color: var(--muted); flex-shrink: 0; }
+#frame-list span { font-size: .82rem; color: var(--muted); flex-shrink: 0; }
 .editor { min-width: 0; padding: .7rem; display: flex; flex-direction: column; min-height: 0; }
 .frame-bar { margin-bottom: .45rem; }
 .frame-nav { margin-left: auto; display: flex; gap: .35rem; }
@@ -85,6 +85,9 @@ details { margin-top: .9rem; border-top: 1px solid var(--line); }
 summary { padding: .6rem 0; cursor: pointer; font-weight: 700; }
 summary span { color: var(--muted); font-weight: 400; }
 #box-list { max-height: 25vh; overflow: auto; margin-top: .55rem; }
+.box-row { display: flex; gap: .35rem; margin-bottom: .35rem; }
+.box-select { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.box-visibility { flex: none; padding-inline: .55rem; white-space: nowrap; }
 .event, .history-entry { display: grid; gap: .4rem; border: 1px solid var(--line); margin-bottom: .45rem; padding: .55rem; border-radius: 6px; }
 .event > button { text-align: left; }
 .event small, .history-entry small { color: var(--muted); }

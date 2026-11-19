@@ -12,6 +12,8 @@ const context = canvas.getContext('2d');
 const layerIds = ['layer-labels', 'layer-original', 'layer-one2one', 'layer-one2many'];
 let task, frame, image, selected, highlighted, gesture, drawing, mode = 'select', dirty = false, busy = false;
 let originalBoxes = [];
+const hiddenBoxesByFrame = new Map();
+let hiddenBoxes = new Set();
 
 function make(tag, content, className) {
   const element = document.createElement(tag);
@@ -175,6 +177,8 @@ function renderFrames() {
 async function showFrame(id) {
   frame = await api(framePath(id));
   originalBoxes = frame.original_boxes || structuredClone(frame.boxes);
+  if (!hiddenBoxesByFrame.has(id)) hiddenBoxesByFrame.set(id, new Set());
+  hiddenBoxes = hiddenBoxesByFrame.get(id);
   selected = highlighted = gesture = drawing = undefined;
   dirty = false;
   byId('frame-name').textContent = frame.name;
@@ -217,17 +221,37 @@ function neighbor(offset) {
   return task.images[index + offset];
 }
 
-function renderLabels() {
+function renderLabels(focusBoxId) {
   const list = byId('box-list');
   list.replaceChildren();
   frame.boxes.forEach((box, index) => {
-    const link = button(boxName(box, index) + ' · ' + task.classes[box.class_id], () => {
+    const name = boxName(box, index) + ' · ' + task.classes[box.class_id];
+    const hidden = hiddenBoxes.has(box.id);
+    const row = make('div', null, 'box-row');
+    const link = button(name, () => {
       byId('layer-labels').checked = true;
       setSelection(box.id);
       focusPoints(box.points);
     });
+    link.className = 'box-select';
+    link.disabled = hidden;
     link.setAttribute('aria-pressed', String(box.id === selected));
-    list.append(link);
+    const visibility = button(hidden ? '显示' : '隐藏', () => {
+      if (hidden) {
+        hiddenBoxes.delete(box.id);
+        byId('layer-labels').checked = true;
+      } else {
+        hiddenBoxes.add(box.id);
+        if (selected === box.id) selected = undefined;
+      }
+      renderLabels(box.id);
+      draw();
+    });
+    visibility.className = 'box-visibility';
+    visibility.setAttribute('aria-label', (hidden ? '显示 ' : '隐藏 ') + name);
+    row.append(link, visibility);
+    list.append(row);
+    if (box.id === focusBoxId) visibility.focus({preventScroll: true});
   });
   byId('box-count').textContent = frame.boxes.length;
   const box = selectedBox();
@@ -432,7 +456,9 @@ function draw() {
   if (!frame || !image) return;
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   if (byId('layer-original').checked) {
-    for (const box of originalBoxes) strokeBox(pixels(box.points), color.original, null, false, true);
+    for (const box of originalBoxes) {
+      if (!hiddenBoxes.has(box.id)) strokeBox(pixels(box.points), color.original, null, false, true);
+    }
   }
   for (const head of ['one2one', 'one2many']) {
     if (!byId('layer-' + head).checked) continue;
@@ -443,7 +469,9 @@ function draw() {
   }
   if (byId('layer-labels').checked) {
     frame.boxes.forEach((box, index) => {
-      if (box.id !== selected) strokeBox(pixels(box.points), color.label, boxName(box, index) + ' ' + task.classes[box.class_id]);
+      if (box.id !== selected && !hiddenBoxes.has(box.id)) {
+        strokeBox(pixels(box.points), color.label, boxName(box, index) + ' ' + task.classes[box.class_id]);
+      }
     });
     const box = selectedBox();
     if (box) {
@@ -494,7 +522,7 @@ function chooseGesture(point) {
     const corner = points.findIndex(pos => distance(point, pos) < reach);
     if (corner >= 0) return {kind: 'resize', start: point, box: current, geometry: currentGeometry, opposite: points[(corner+2)%4]};
   }
-  const hit = frame.boxes.findLast(box => inside(point, pixels(box.points)));
+  const hit = frame.boxes.findLast(box => !hiddenBoxes.has(box.id) && inside(point, pixels(box.points)));
   setSelection(hit?.id);
   if (!hit) return null;
   return {kind: 'move', start: point, box: hit, points: rectangle(geometry(hit))};
