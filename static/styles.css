@@ -1,12 +1,15 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font: 14px "Microsoft YaHei", system-ui, sans-serif;
-  color: #dbe8e7;
-  background: #101818;
-  --panel: #182322;
-  --line: #324340;
-  --muted: #a6b7b3;
-  --accent: #80e8ca;
+  color: #172e32;
+  background: #f4f7f8;
+  --panel: #ffffff;
+  --line: #c8d5d8;
+  --control: #f5f8f8;
+  --muted: #4c6267;
+  --accent: #087266;
+  --selected: #e4f4ee;
+  --error: #a82d20;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -14,15 +17,15 @@ body { margin: 0; }
 a { color: var(--accent); }
 button, input, select, textarea { font: inherit; }
 button, .button, .attach {
-  border: 1px solid var(--line); color: inherit; background: #223130;
+  border: 1px solid var(--line); color: inherit; background: var(--control);
   border-radius: 7px; padding: .52rem .75rem; text-decoration: none; cursor: pointer;
 }
-button:hover, .button:hover, .attach:hover { border-color: #71988d; }
+button:hover, .button:hover, .attach:hover { border-color: var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
-.primary { background: var(--accent); color: #101d18; border-color: var(--accent); font-weight: 700; }
-[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+[aria-pressed=true] { background: var(--selected); border-color: var(--accent); color: var(--accent); }
 input:not([type=checkbox],[type=range]), select, textarea {
-  min-width: 0; background: #101b1a; color: inherit; border: 1px solid var(--line);
+  min-width: 0; background: var(--panel); color: inherit; border: 1px solid var(--line);
   border-radius: 6px; padding: .48rem .6rem;
 }
 input[type=checkbox], input[type=range] { accent-color: var(--accent); }
@@ -31,11 +34,11 @@ label:has(input[type=checkbox]) { display: inline-flex; align-items: center; }
 .top, .task-bar, .frame-bar, .tools, .layers, .save-actions {
   display: flex; align-items: center; gap: .65rem; flex-wrap: wrap;
 }
-.top { min-height: 56px; padding: .6rem 1.3rem; border-bottom: 1px solid var(--line); }
+.top { min-height: 56px; padding: .6rem 1.3rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 .brand { white-space: nowrap; font-size: 1.2rem; font-weight: 800; text-decoration: none; }
-.brand span { color: #e8f4f2; font-weight: 500; margin-left: .3rem; }
+.brand span { color: var(--muted); font-weight: 500; margin-left: .3rem; }
 #message { margin: 0 0 0 auto; color: var(--muted); white-space: pre-wrap; }
-#message[data-error=true] { color: #ffae9f; }
+#message[data-error=true] { color: var(--error); }
 #catalog { max-width: 980px; padding: 1rem; margin: 2rem auto; }
 h1 { font-size: 1.35rem; margin: 0; }
 #catalog h1 { font-size: 1.9rem; margin-bottom: 1.25rem; }
@@ -70,12 +73,12 @@ h1 { font-size: 1.35rem; margin: 0; }
 .tools input[type=range] { width: 95px; }
 .layers { margin-top: .35rem; }
 .canvas-scroll {
-  overflow: auto; background: #0a1111; border: 1px solid var(--line); min-height: 160px; flex: 1;
+  overflow: auto; background: #e3eaec; border: 1px solid var(--line); min-height: 160px; flex: 1;
   position: relative;
 }
 canvas { display: block; touch-action: none; }
 .canvas-help { margin: .4rem 0 0; }
-#image-message { position: absolute; top: .5rem; left: 1rem; color: #ffae9f; }
+#image-message { position: absolute; top: .5rem; left: 1rem; color: var(--error); }
 .review-save, #box-editor { display: grid; gap: .5rem; }
 textarea { width: 100%; resize: vertical; }
 details { margin-top: .9rem; border-top: 1px solid var(--line); }
@@ -87,7 +90,7 @@ summary span { color: var(--muted); font-weight: 400; }
 .event small, .history-entry small { color: var(--muted); }
 pre { margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 dialog { background: var(--panel); color: inherit; border: 1px solid var(--line); border-radius: 9px; min-width: min(320px, 90vw); }
-dialog::backdrop { background: #060a0bc4; }
+dialog::backdrop { background: #192e4160; }
 dialog h2 { margin: 0 0 .6rem; font-size: 1.2rem; }
 #export-summary { display: grid; grid-template-columns: 1fr auto; gap: .38rem 1.2rem; }
 #export-summary dd { margin: 0; text-align: right; }
