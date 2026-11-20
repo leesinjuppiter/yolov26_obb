@@ -211,6 +211,7 @@ async function showFrame(id) {
   if (!hiddenBoxesByFrame.has(id)) hiddenBoxesByFrame.set(id, new Set());
   hiddenBoxes = hiddenBoxesByFrame.get(id);
   selected = highlighted = gesture = drawing = undefined;
+  byId('clear-event-focus').hidden = true;
   dirty = false;
   showSaveState('无未保存修改');
   byId('frame-name').textContent = frame.name;
@@ -330,22 +331,29 @@ function locateEvent(event) {
   const head = event.head === 'one2many' ? 'one2many' : 'one2one';
   const other = head === 'one2one' ? 'one2many' : 'one2one';
   const ids = {[head]: event.box_id, [other]: event.other_box_id};
-  let focus;
-  for (const h of [head, other]) {
-    if (!ids[h]) continue;
-    byId('layer-' + h).checked = true;
-    const proposal = frame.predictions?.[h]?.find(item => String(item.id) === String(ids[h]));
-    focus ??= proposal?.points;
-  }
-  highlighted = ids;
+  const heads = event.kind.endsWith('_only') ? [head] : [head, other];
+  const proposals = heads.flatMap(h => (frame.predictions?.[h] || [])
+    .filter(item => ids[h] && String(item.id) === String(ids[h]))
+    .map(item => [h, item]));
+  const focus = proposals[0]?.[1].points;
+  highlighted = focus ? Object.fromEntries(proposals) : undefined;
+  byId('clear-event-focus').hidden = !highlighted;
   if (focus) {
     focusPoints(focus);
-    draw();
-  } else if (frame.has_preview) {
+  }
+  draw();
+  if (focus) return;
+  if (frame.has_preview) {
     window.open(framePath() + '/preview', '_blank', 'noopener');
   } else {
     message('该事件没有对应的可定位预测框。', true);
   }
+}
+
+function clearEventFocus() {
+  highlighted = undefined;
+  byId('clear-event-focus').hidden = true;
+  draw();
 }
 
 function renderHistory() {
@@ -529,10 +537,14 @@ function draw() {
     }
   }
   for (const head of ['one2one', 'one2many']) {
+    if (highlighted) {
+      const box = highlighted[head];
+      if (box) strokeBox(pixels(box.points), color[head], box.id + ' ' + (task.classes[box.class_id] || ''), true, true);
+      continue;
+    }
     if (!byId('layer-' + head).checked) continue;
     for (const box of frame.predictions?.[head] || []) {
-      const emphasis = String(highlighted?.[head]) === String(box.id);
-      strokeBox(pixels(box.points), color[head], box.id + ' ' + (task.classes[box.class_id] || ''), emphasis, true);
+      strokeBox(pixels(box.points), color[head], box.id + ' ' + (task.classes[box.class_id] || ''), false, true);
     }
   }
   if (byId('layer-labels').checked) {
@@ -737,7 +749,10 @@ byId('export').addEventListener('click', () => {
   });
 });
 byId('export-download').addEventListener('click', () => byId('export-dialog').close());
-for (const id of layerIds) byId(id).addEventListener('change', draw);
+for (const id of layerIds) {
+  byId(id).addEventListener('change', id.startsWith('layer-one2') ? clearEventFocus : draw);
+}
+byId('clear-event-focus').addEventListener('click', clearEventFocus);
 zoom.addEventListener('input', () => setZoom(Number(zoom.value)));
 byId('zoom-out').addEventListener('click', () => setZoom(Number(zoom.value) - Number(zoom.step)));
 byId('zoom-in').addEventListener('click', () => setZoom(Number(zoom.value) + Number(zoom.step)));
