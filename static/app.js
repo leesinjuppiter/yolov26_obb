@@ -304,11 +304,21 @@ function renderEvents() {
     const item = make('article', null, 'event');
     const title = (eventKinds[event.kind] || event.kind) + ' · ' + (event.box_id || event.id);
     const select = make('select');
-    const values = [['', '待判定'], ...decisions.map(value => [value, value])];
-    if (event.decision && !decisions.includes(event.decision)) values.push([event.decision, event.decision]);
+    const otherHead = {one2one_only: 'one2many', one2many_only: 'one2one'}[event.kind];
+    const allowed = otherHead ? decisions.filter(value => !value.startsWith(otherHead + ' ')) : decisions;
+    const values = [['', '待判定'], ...allowed.map(value => [value, value])];
+    const previous = event.decision && !allowed.includes(event.decision);
+    const saved = previous && otherHead ? make('small', '已有判定 · ' + event.decision) : null;
+    if (previous && !otherHead) values.push([event.decision, event.decision]);
     options(select, values);
-    select.value = event.decision || '';
-    select.addEventListener('change', () => { event.decision = select.value; updateEventCount(); markDirty(); });
+    if (saved) select.selectedIndex = -1;
+    else select.value = event.decision || '';
+    select.addEventListener('change', () => {
+      event.decision = select.value;
+      if (saved) saved.hidden = true;
+      updateEventCount();
+      markDirty();
+    });
     const note = make('textarea');
     note.rows = 2;
     note.value = event.note || '';
@@ -317,6 +327,7 @@ function renderEvents() {
       event.other_box_id, event.other_class_name, event.probiou == null || event.probiou === '' ? '' : 'ProbIoU ' + event.probiou].filter(Boolean);
     item.append(button(title, () => locateEvent(event)), make('small', detail.join(' · ')),
       field('人工判定', select), field('备注', note));
+    if (saved) item.append(saved);
     list.append(item);
   }
 }
