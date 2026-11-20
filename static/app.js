@@ -765,7 +765,14 @@ canvasWrap.addEventListener('wheel', event => {
 new ResizeObserver(sizeCanvas).observe(canvasWrap);
 
 document.addEventListener('keydown', event => {
-  if (!frame || event.target.matches('input,select,textarea,button') || event.altKey || event.metaKey || event.ctrlKey) return;
+  if (!frame || event.isComposing || event.target.isContentEditable ||
+    event.target.matches('input,select,textarea') || event.altKey || event.metaKey || event.ctrlKey) return;
+  if (event.key.toLowerCase() === 'b' && !busy && !gesture && !byId('export-dialog').open) {
+    event.preventDefault();
+    setMode('select');
+    return;
+  }
+  if (event.target.matches('button')) return;
   if (event.key === 'Delete') deleteBox();
   if (event.key === 'Escape') setMode('select');
 });
