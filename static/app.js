@@ -1,7 +1,7 @@
 'use strict';
 
 const byId = id => document.getElementById(id);
-const statuses = {pending: '待审核', in_progress: '审核中', done: '已完成', negative: '确认无目标', uncertain: '无法判断'};
+const statuses = {pending: '待审核', in_progress: '审核中', done: '已审核', negative: '确认无目标', uncertain: '无法判断'};
 const eventKinds = {one2one_only: 'one2one 独有框', one2many_only: 'one2many 独有框', localization: '定位分歧', class_conflict: '类别冲突'};
 const decisions = ['预测正确', 'one2one 漏检', 'one2many 漏检', 'one2one 误检', 'one2many 误检',
   'one2one 错分', 'one2many 错分', 'one2one 定位偏差', 'one2many 定位偏差',
@@ -129,7 +129,7 @@ async function showCatalog() {
   for (const item of tasks) {
     const row = make('li');
     const select = button(item.name, () => run(() => openTask(item.id)));
-    select.append(make('span', item.done + ' / ' + item.total + ' 已完成'));
+    select.append(make('span', item.done + ' / ' + item.total + ' 已审核'));
     row.append(select);
     list.append(row);
   }
@@ -198,7 +198,7 @@ function renderFrames() {
   }
   if (!visible.length) list.append(make('li', '没有符合筛选的图片'));
   const done = task.images.filter(item => item.status === 'done' || item.status === 'negative').length;
-  byId('progress').textContent = done + ' / ' + task.images.length + ' 已完成';
+  byId('progress').textContent = done + ' / ' + task.images.length + ' 已审核';
   const index = task.images.findIndex(item => item.id === frame?.id);
   byId('prev').disabled = index <= 0;
   byId('next').disabled = index >= task.images.length - 1;
@@ -741,7 +741,7 @@ byId('export').addEventListener('click', () => {
   }
   run(async () => {
     const counts = await api(taskPath() + '/export-summary');
-    const labels = {total: '图片总数', done: '已完成', remaining: '其余图片',
+    const labels = {total: '图片总数', done: '已审核', remaining: '其余图片',
       added: '新增框操作', deleted: '删除框操作', modified: '修改框操作'};
     byId('export-summary').replaceChildren(...Object.entries(labels).flatMap(([key, label]) =>
       [make('dt', label), make('dd', counts[key])]));
